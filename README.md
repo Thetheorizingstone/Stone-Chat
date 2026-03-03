@@ -1,2 +1,105 @@
 # Stone-Chat
-User interface, two devices one input and output 
+#User interface, two devices one input and output 
+
+
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { background: #05070a; color: #e6edf3; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        .terminal { width: 100%; max-width: 450px; background: #0d1117; border: 1px solid #30363d; border-radius: 12px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        #auth { display: flex; flex-direction: column; gap: 10px; }
+        #main-ui { display: none; flex-direction: column; gap: 15px; }
+        
+        input { background: #161b22; border: 1px solid #30363d; color: white; padding: 12px; border-radius: 6px; outline: none; transition: 0.2s; }
+        input:focus { border-color: #58a6ff; }
+        button { background: #238636; border: none; color: white; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
+        button:hover { background: #2ea043; }
+        .btn-send { background: #1f6feb; }
+        .btn-send:hover { background: #388bfd; }
+
+        #history { height: 250px; overflow-y: auto; background: #05070a; border: 1px solid #30363d; border-radius: 6px; padding: 10px; font-family: monospace; font-size: 13px; display: flex; flex-direction: column-reverse; gap: 8px; }
+        .msg { border-left: 2px solid #58a6ff; padding-left: 8px; animation: fadeIn 0.3s ease; }
+        .msg span { color: #8b949e; font-size: 10px; display: block; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+        #status { font-size: 10px; color: #8b949e; text-align: center; margin-top: 10px; letter-spacing: 1px; }
+    </style>
+</head>
+<body>
+
+<div class="terminal">
+    <div id="auth">
+        <div style="text-align:center; margin-bottom:10px; font-weight:bold; color:#58a6ff;">STONE MESH v1.0</div>
+        <input type="password" id="pin" placeholder="ENTER ACCESS PIN">
+        <button onclick="unlock()">INITIALIZE LINK</button>
+    </div>
+
+    <div id="main-ui">
+        <div id="history"></div>
+        
+        <div style="display:flex; gap:5px; margin-top:10px;">
+            <input type="text" id="msgInput" placeholder="Secure broadcast..." style="flex-grow:1;">
+            <button class="btn-send" onclick="broadcast()">SEND</button>
+        </div>
+        <div id="status">ENCRYPTED LINK ACTIVE</div>
+    </div>
+</div>
+
+<script>
+    const MESH_ID = "stone_relay_777";
+    const CLOUD_URL = `https://kvdb.io/6n8m6n8m6n8m/${MESH_ID}`;
+    let lastReceived = "";
+
+    function unlock() {
+        // Simple bypass: Any PIN works or set it to "123"
+        if(document.getElementById("pin").value !== "") {
+            document.getElementById("auth").style.display = "none";
+            document.getElementById("main-ui").style.display = "flex";
+            startListener();
+        }
+    }
+
+    async function broadcast() {
+        const msg = document.getElementById("msgInput").value;
+        if(!msg) return;
+        
+        document.getElementById("status").innerText = "UPLOADING...";
+        try {
+            await fetch(CLOUD_URL, { method: 'POST', body: msg });
+            document.getElementById("msgInput").value = "";
+            document.getElementById("status").innerText = "SENT ✓";
+            setTimeout(() => { document.getElementById("status").innerText = "LISTENING..."; }, 1500);
+        } catch(e) { document.getElementById("status").innerText = "SIGNAL FAILED"; }
+    }
+
+    function startListener() {
+        setInterval(async () => {
+            try {
+                const response = await fetch(CLOUD_URL);
+                const data = await response.text();
+                
+                if(data && data !== lastReceived) {
+                    addMessageToLog(data);
+                    lastReceived = data;
+                }
+            } catch(e) { console.log("Searching for pulse..."); }
+        }, 1000);
+    }
+
+    function addMessageToLog(text) {
+        const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        const msgDiv = document.createElement("div");
+        msgDiv.className = "msg";
+        msgDiv.innerHTML = `<span>${time}</span>${text}`;
+        document.getElementById("history").prepend(msgDiv);
+    }
+
+    // Allow "Enter" key to send
+    document.getElementById("msgInput").addEventListener("keypress", (e) => {
+        if (e.key === "Enter") broadcast();
+    });
+</script>
+
+</body>
+</html>
